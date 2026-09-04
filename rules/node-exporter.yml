@@ -1,0 +1,99 @@
+# 硬件故障告警组（node-exporter 采集的 IPMI 硬件传感器）
+# 内存 / 磁盘 / CPU 三条旧规则合并到此组（2026-08-13 用户要求）
+groups:
+- name: node-exporter
+  rules:
+  - alert: Memory_hardware
+    expr: increase(node_edac_correctable_errors_total[1h]) > 10 or increase(node_edac_uncorrectable_errors_total[1h]) > 0
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 内存 ECC 错误增长"
+      description: "{{ $labels.instance }} 过去1小时可纠正内存错误 {{ $value }} 次（阈值 10），或出现不可纠正错误，请核查内存条状态。"
+
+  - alert: hard disk bad
+    expr: ipmi_sensor_state{type="Drive Slot"} == 1
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 硬盘坏了"
+      description: "{{ $labels.instance }} of job {{$labels.job}} 硬盘坏了,当前状态[{{ $value }}]."
+
+  - alert: Processor hardware error
+    expr: ipmi_sensor_state{name="Status",type="Processor"} == 1
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 处理器硬件警告"
+      description: "{{ $labels.instance }} of job {{$labels.job}} 处理器硬件警告,当前状态[{{ $value }}]."
+
+  - alert: speed fan bad
+    expr: ipmi_fan_speed_state{} == 1
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 风扇坏了"
+      description: "{{ $labels.instance }} of job {{$labels.job}} 风扇坏了,当前状态[{{ $value }}]."
+
+  - alert: node is bad
+    expr: up{job="node_exporter"} == 0
+    for: 5m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 节点宕机"
+      description: "{{ $labels.instance }} of job {{$labels.job}} 节点宕机i"
+
+  - alert: power bad
+    expr: ipmi_sensor_state{name="Status",type="Power Supply"} == 1
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 电源坏了"
+      description: "{{ $labels.instance }} of job {{$labels.job}} 电源坏了,当前状态[{{ $value }}]."
+
+  # CPU 硬件级节流（过热/功耗受限降频）
+  - alert: CPUThrottling
+    expr: max by (instance) (increase(node_cpu_package_throttles_total[5m])) > 0 or max by (instance) (increase(node_cpu_core_throttles_total[5m])) > 0
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} CPU 硬件节流"
+      description: "{{ $labels.instance }} 过去5分钟出现 CPU 硬件级节流（包/核心），可能过热或功耗受限，请检查散热。"
+
+  # 内存硬件坏页（内核检测，非0即内存条故障）
+  - alert: MemoryHardwareCorrupted
+    expr: node_memory_HardwareCorrupted_bytes > 0
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 内存硬件坏页"
+      description: "{{ $labels.instance }} 内核检测到 {{ $value }} 字节硬件损坏内存页，内存条可能故障，建议排查/更换。"
+
+  # 磁盘文件系统只读（硬件故障信号；排除 ramfs/tmpfs 等设计上只读的伪文件系统）
+  - alert: FilesystemReadonly
+    expr: node_filesystem_readonly{fstype!~"ramfs|tmpfs|squashfs|iso9660|overlay"} == 1
+    for: 3m
+    labels:
+      user: caizh
+    annotations:
+      summary: "Instance {{ $labels.instance }} 磁盘只读 {{ $labels.mountpoint }}"
+      description: "{{ $labels.instance }} 的 {{ $labels.mountpoint }} ({{ $labels.fstype }}) 变为只读，疑似磁盘硬件故障，请检查。"
+
+  # 以太网错误/物理链路断开（硬件信号；排除 docker0 等虚拟网桥；bond0 背景丢包非硬件信号不告警）
+  # 2026-08-13 用户手动注释停用（.65 eno1 物理口无链路触发）
+  #- alert: NetworkHardwareErrors
+  #  expr: max by (instance) (rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m])) > 0 or node_network_carrier{device=~"en.*|eth.*"} == 0
+  # for: 5m
+  #  labels:
+  #    user: caizh
+  #  annotations:
+  #    summary: "Instance {{ $labels.instance }} 网卡错误/断链"
+  #    description: "{{ $labels.instance }} 网卡出现错误或物理链路断开（设备 {{ $labels.device }}），请检查网卡/网线/光模块。"

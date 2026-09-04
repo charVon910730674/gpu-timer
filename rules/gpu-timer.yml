@@ -1,0 +1,3 @@
+# gpu_timer 故障规则已全部迁移到 gpu-timer 采集器（collector.py 10 条件判定），
+# 告警页不再显示；保留空组避免 rule_files 报错。
+groups: []

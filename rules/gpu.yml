@@ -1,0 +1,95 @@
+groups:
+  - name: dcgm_gpu_alerts
+    rules:
+      # 显存溢出预警
+      - alert: HighGPUMemoryUsage
+        expr: (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) > 0.92
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} 显存使用率超过 92%"
+          description: "当前显存使用 {{ $value | humanizePercentage }}, 存在 OOM 风险。"
+
+      # GPU 温度过高
+      - alert: HighGPUTemperature
+        expr: DCGM_FI_DEV_GPU_TEMP > 83
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} 温度过高 ({{ $value }}°C)"
+          description: "可能触发降频，请检查散热。"
+      #GPU ECC错误
+      - alert: GpuEccDoubleBitError
+        expr: increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[5m]) > 0 or increase(DCGM_FI_DEV_ECC_DBE_PEND_TOTAL[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "检测到 GPU ECC 双位错误 (Instance: {{ $labels.instance }}, GPU: {{ $labels.gpu }})"
+          description: "发生不可纠正的 ECC 错误，显存数据可能已损坏。建议立即隔离该 GPU 并联系硬件维保。"
+      # GPU 温度过高且功率过低
+      - alert: HighGPUTemperature and Lower_POWER_USAGE
+        expr: DCGM_FI_DEV_POWER_USAGE <400 and DCGM_FI_DEV_GPU_TEMP > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} 温度过高 ({{ $value }}°C),功率过低"
+          description: "温度过高且功率过低，请检查GPU状态。"
+
+      # 
+      # GPU 掉卡
+      - alert: GPUIsDown
+        expr: (stddev_over_time(DCGM_FI_DEV_POWER_USAGE[15m]) == 0) and (stddev_over_time(DCGM_FI_DEV_GPU_TEMP[15m]) == 0) and (stddev_over_time(DCGM_FI_DEV_SM_CLOCK[15m]) == 0)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} 可能掉卡"
+          description: "GPU掉卡，请检查GPU状态。"
+
+
+      # GPU XID错误
+      - alert: GPUXidErrors
+        #expr: DCGM_FI_DEV_XID_ERRORS != 0
+        expr: increase(DCGM_FI_DEV_XID_ERRORS[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} xid error {{ $value }}"
+          description: "GPU XID ERROR" 
+
+      # GPU 不可纠正错误
+      - alert: UncorrectableError
+        expr: DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS != 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} Uncorrectable Error {{ $value }}"
+          description: "GPU Uncorrectable Error 不可纠正错误"
+
+
+      # GPU 可纠正错误
+      - alert: CorrectableError
+        expr: DCGM_FI_DEV_CORRECTABLE_REMAPPED_ROWS != 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} Correctable Error {{ $value }}"
+          description: "GPU Correctable Error 可纠正错误"
+
+      # GPU PCIe 链路重放错误（补充硬件故障）
+      - alert: PCIeReplayErrors
+        expr: increase(DCGM_FI_DEV_PCIE_REPLAY_COUNTER[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} GPU {{$labels.gpu}} PCIe 重放错误"
+          description: "GPU PCIe 链路出现重放错误（{{ $value }} 次），可能插槽接触不良或链路劣化，请核查。"
+

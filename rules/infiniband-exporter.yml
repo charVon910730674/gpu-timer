@@ -1,0 +1,148 @@
+groups:
+- name: infiniband-exporter
+  rules:
+    - alert: InfiniBandHighReceiveErrorRate
+      expr: rate(node_infiniband_port_errors_received_total[5m]) > 10
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "IB端口接收错误率过高"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 在过去5分钟内平均每秒接收错误数超过10个。请检查光纤连接、光模块或更换端口。"
+   
+    #ib网卡故障
+    - alert: IB port is down
+      expr: node_infiniband_physical_state_id != 5
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "IB端口 Down"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 请检查光纤连接、光模块或更换端口。"
+   
+      #ib网卡故障
+    - alert: IB port is not active
+      expr: node_infiniband_state_id != 4
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "IB状态未存活"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 请检查光纤连接、光模块或>更换端口。"
+
+    #IB端口交换机中继错误
+    - alert: InfiniBandSwitchRelayErrors
+      expr: rate(node_infiniband_port_receive_switch_relay_errors_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "IB端口交换机中继错误"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 在过去5分钟内检测到交换机中继错误。请检查子网管理器配置、路由表或是否存在路由环路。"
+
+    #IB端口接收到远程物理错误
+    - alert: InfiniBandRemotePhysicalErrors
+      expr: rate(node_infiniband_port_receive_remote_physical_errors_total[5m]) > 5
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "IB端口接收到远程物理错误"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 在过去5分钟内平均每秒接收到 {{ $value }} 个远程物理错误。请检查对端节点的光模块、光纤连接或交换机端"
+
+    #信号劣化，查光模块
+    - alert: IB info is error
+      expr: increase(node_infiniband_port_local_link_integrity_errors_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "信号劣化，查光模块"
+        description: "实例 {{ $labels.instance }} 的设备 {{ $labels.device }} 端口 {{ $labels.port }} 在过去5分钟内平均每秒接收到 {{ $value }} 个远程物理错误>。请检查对端节点的光模块、光纤连接或交换机端口。"
+
+    #符号错误（误码率最直接指标，光模块/线缆信号质量）
+    - alert: InfiniBandSymbolErrors
+      expr: rate(node_infiniband_symbol_error_total[5m]) > 1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB符号错误（误码）"
+        description: "实例 {{ $labels.instance }} 设备 {{ $labels.device }} 端口 {{ $labels.port }} 过去5分钟平均每秒 {{ $value }} 个符号错误。请检查光模块、光纤连接。"
+
+    #链路闪断
+    - alert: InfiniBandLinkDowned
+      expr: increase(node_infiniband_link_downed_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB链路Down事件"
+        description: "实例 {{ $labels.instance }} 设备 {{ $labels.device }} 端口 {{ $labels.port }} 5分钟内发生链路 Down。请检查线缆/光模块/对端。"
+
+    #链路错误恢复（抖动）
+    - alert: InfiniBandLinkErrorRecovery
+      expr: increase(node_infiniband_link_error_recovery_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB链路错误恢复（抖动）"
+        description: "实例 {{ $labels.instance }} 设备 {{ $labels.device }} 端口 {{ $labels.port }} 5分钟内发生链路错误恢复，链路可能抖动，请关注。"
+
+    #缓冲区溢出
+    - alert: InfiniBandBufferOverrun
+      expr: increase(node_infiniband_excessive_buffer_overrun_errors_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB缓冲区溢出"
+        description: "实例 {{ $labels.instance }} 设备 {{ $labels.device }} 端口 {{ $labels.port }} 5分钟内发生缓冲区溢出错误。"
+
+    #交换机侧误码/链路类（instance 为交换机 exporter，无 device 标签）
+    - alert: InfiniBandSwitchSymbolErrors
+      expr: rate(infiniband_switch_port_symbol_error_total[5m]) > 1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB交换机端口符号错误"
+        description: "交换机 {{ $labels.instance }} 端口 {{ $labels.port }} 过去5分钟平均每秒 {{ $value }} 个符号错误。请检查光模块/线缆。"
+
+    - alert: InfiniBandSwitchLinkDowned
+      expr: increase(infiniband_switch_port_link_downed_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB交换机端口Down"
+        description: "交换机 {{ $labels.instance }} 端口 {{ $labels.port }} 5分钟内发生链路 Down。"
+
+    - alert: InfiniBandSwitchLinkErrorRecovery
+      expr: increase(infiniband_switch_port_link_error_recovery_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB交换机端口错误恢复"
+        description: "交换机 {{ $labels.instance }} 端口 {{ $labels.port }} 5分钟内发生链路错误恢复，链路可能抖动。"
+
+    - alert: InfiniBandSwitchBufferOverrun
+      expr: increase(infiniband_switch_port_excessive_buffer_overrun_errors_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB交换机端口缓冲区溢出"
+        description: "交换机 {{ $labels.instance }} 端口 {{ $labels.port }} 5分钟内发生缓冲区溢出错误。"
+
+    #8张IB卡不同时在线（按节点统计 mlx5_N 网卡，非 bond；少于 8 张即告警）
+    - alert: IBPortNotAllUp
+      expr: count(node_infiniband_physical_state_id{device=~"mlx5_[0-9]+"} == 5) by (instance) < 8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "IB 卡不齐 {{ $labels.instance }}"
+        description: "{{ $labels.instance }} 当前在线 IB 卡 {{ $value }} 张（应有 8 张），请检查掉线的 IB 卡/光模块/线缆。"
