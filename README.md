@@ -31,6 +31,8 @@ Prometheus(IPMI+node+DCGM+IB, 250) ─▶ gpu-timer (Python + APScheduler)
         （9 图表：状态/趋势/排行/故障/TOP20/高温）   （dcgm/IB/硬件故障规则，HUP 热重载）
 ```
 
+![系统架构图](rules/c6493da9-e3ae-458d-bf02-981f8478c2db.png)
+
 - 部署：`gpu-timer:1.2` 容器（`--network=host --restart=unless-stopped`），代码挂载 `/opt/gpu-timer/app`，250 宿主机（203.0.113.250）
 - 构建链路：142（有外网）构建镜像 → `docker save|gzip` 管道 → 250 `docker load`
 
